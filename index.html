@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0B8B84" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Quick Memo" />
+  <title>IOAP Quick Memo</title>
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="apple-touch-icon" href="/icon-192.png" />
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html,body,#root{height:100%}
+    body{font-family:-apple-system,'Helvetica Neue',sans-serif;background:#fff;-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
+    input,textarea,button{font-family:inherit}
+    input::placeholder,textarea::placeholder{color:#C8C8C8}
+    textarea{resize:none}
+    @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+    @keyframes fadein{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+    @keyframes wv0{from{height:3px}to{height:14px}}
+    @keyframes wv1{from{height:5px}to{height:10px}}
+    @keyframes wv2{from{height:3px}to{height:18px}}
+    @keyframes wv3{from{height:4px}to{height:9px}}
+    .wv{display:flex;align-items:center;gap:3px;height:18px}
+    .wv div{width:3px;border-radius:2px}
+    .wv div:nth-child(1){animation:wv0 .40s ease-in-out infinite alternate}
+    .wv div:nth-child(2){animation:wv1 .52s ease-in-out infinite alternate}
+    .wv div:nth-child(3){animation:wv2 .36s ease-in-out infinite alternate}
+    .wv div:nth-child(4){animation:wv3 .48s ease-in-out infinite alternate}
+    .wv div:nth-child(5){animation:wv0 .44s ease-in-out infinite alternate}
+    .wv div:nth-child(6){animation:wv1 .38s ease-in-out infinite alternate}
+    .wv div:nth-child(7){animation:wv2 .56s ease-in-out infinite alternate}
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useRef, useEffect } = React;
+
+const DBS = [
+  { id:"input",  short:"I", label:"インプット",   color:"#0B8B84", bg:"#E8FAF9", dbId:"31b9c6c1c43980b48b91d7128950f794" },
+  { id:"output", short:"O", label:"アウトプット", color:"#D95F2B", bg:"#FDF0EB", dbId:"31b9c6c1c43980c5b8ccdf3b7fea572a" },
+  { id:"asset",  short:"A", label:"アセット",     color:"#5A8A00", bg:"#EFF7E0", dbId:"31b9c6c1c43980bd963fc2ca909feacb" },
+];
+const TAGS = ["知的生産","自己変革","発信","AI","経営","コミュニティ","デザイン","人生哲学","テクノロジー"];
+const store = { get: k => localStorage.getItem(k)||"", set: (k,v) => localStorage.setItem(k,v) };
+
+function useVoice(onFinal) {
+  const [listening, setListening] = useState(false);
+  const recRef = useRef(null);
+  const lisRef = useRef(false);
+  const accRef = useRef("");
+  useEffect(() => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return;
+    const r = new SR();
+    r.lang="ja-JP"; r.continuous=true; r.interimResults=true;
+    r.onresult = e => {
+      let f="";
+      for(let i=0;i<e.results.length;i++) if(e.results[i].isFinal) f+=e.results[i][0].transcript;
+      accRef.current=f;
+    };
+    r.onend = () => { if(lisRef.current) try{r.start()}catch(e){} };
+    r.onerror = e => {
+      if(e.error==="not-allowed") alert("マイクの許可が必要です");
+      if(e.error!=="aborted"){setListening(false);lisRef.current=false;}
+    };
+    recRef.current=r;
+  },[]);
+  const start=()=>{accRef.current="";try{recRef.current?.start();setListening(true);lisRef.current=true;}catch(e){}};
+  const stop=()=>{recRef.current?.stop();setListening(false);lisRef.current=false;const t=accRef.current.trim();if(t)onFinal(t);};
+  return{listening,toggle:()=>listening?stop():start(),supported:!!(window.SpeechRecognition||window.webkitSpeechRecognition)};
+}
+
+function Waveform({color}){return <div className="wv">{[...Array(7)].map((_,i)=><div key={i} style={{background:color}}/>)}</div>;}
+
+function MicIcon({color="#888"}){
+  return<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+    <line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>
+  </svg>;
+}
+
+function SendIcon(){
+  return<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+  </svg>;
+}
+
+// ── Settings ──────────────────────────────────────────────────────────────────
+function Settings({onBack}) {
+  const [token, setToken] = useState(store.get("notion_token"));
+  const [flash, setFlash] = useState(false);
+  const save = () => {store.set("notion_token",token.trim());setFlash(true);setTimeout(()=>setFlash(false),2000);};
+  return (
+    <div style={{display:"flex",flexDirection:"column",height:"100dvh",background:"#fff"}}>
+      <div style={{padding:"16px 20px 14px",borderBottom:"1px solid #F0F0F0",display:"flex",alignItems:"center",gap:14}}>
+        <button onClick={onBack} style={{background:"none",border:"none",fontSize:22,color:"#888",cursor:"pointer",lineHeight:1,padding:"0 4px"}}>←</button>
+        <div>
+          <div style={{fontSize:9,letterSpacing:"0.4em",color:"#BBB",textTransform:"uppercase"}}>Settings</div>
+          <div style={{fontSize:17,fontWeight:600,color:"#111"}}>設定</div>
+        </div>
+      </div>
+      <div style={{padding:"28px 24px",flex:1,overflow:"auto"}}>
+        <div style={{marginBottom:28}}>
+          <div style={{fontSize:12,fontWeight:600,color:"#333",marginBottom:6}}>Notion Integration Token</div>
+          <input type="password" value={token} onChange={e=>setToken(e.target.value)} placeholder="secret_..."
+            style={{width:"100%",padding:"12px 14px",border:"1px solid #E0E0E0",borderRadius:10,fontSize:14,color:"#111",outline:"none",fontFamily:"monospace"}}/>
+          <div style={{marginTop:8,fontSize:12,color:"#AAA",lineHeight:1.8}}>
+            notion.so/my-integrations でトークンを取得し、<br/>
+            各DB（インプット・アウトプット・アセット）の<br/>
+            「接続を追加」でインテグレーションを許可してください。
+          </div>
+        </div>
+        <button onClick={save} style={{width:"100%",padding:"14px",background:token.trim()?"#0B8B84":"#EBEBEB",border:"none",borderRadius:12,fontSize:14,fontWeight:600,color:token.trim()?"#fff":"#CCC",cursor:token.trim()?"pointer":"not-allowed",transition:"all .15s"}}>
+          {flash?"✓ 保存しました":"保存"}
+        </button>
+        <div style={{marginTop:28,padding:"18px 20px",background:"#F7F6F3",borderRadius:12,fontSize:12,color:"#666",lineHeight:2}}>
+          <div style={{fontWeight:600,color:"#333",marginBottom:4}}>📖 Token取得手順</div>
+          1. <a href="https://www.notion.so/my-integrations" target="_blank" style={{color:"#0B8B84"}}>notion.so/my-integrations</a> を開く<br/>
+          2. 「新しいインテグレーション」を作成<br/>
+          3. Internal integration token をコピー<br/>
+          4. 各DBの「・・・」→「接続を追加」→<br/>
+          　 作ったインテグレーションを選択（3つとも）
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Memo ──────────────────────────────────────────────────────────────────────
+function Memo() {
+  const [dbId, setDbId]     = useState("input");
+  const [body, setBody]     = useState("");
+  const [tags, setTags]     = useState([]);
+  const [tagOpen, setTagOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [result, setResult] = useState(null);
+  const textRef = useRef(null);
+
+  const db = DBS.find(d=>d.id===dbId);
+  const lines = body.trim().split(/\n/);
+  const titleLine = lines[0]?.slice(0,50)||"";
+  const canSave = body.trim().length>0 && !saving;
+  const toggleTag = t=>setTags(p=>p.includes(t)?p.filter(x=>x!==t):[...p,t]);
+
+  const{listening,toggle:toggleMic,supported:micOk}=useVoice(text=>{
+    setBody(p=>p?p+"\n"+text:text);
+  });
+
+  const reset=()=>{setBody("");setTags([]);setResult(null);setTimeout(()=>textRef.current?.focus(),50);};
+
+  const save=async()=>{
+    if(!canSave)return;
+    const token=store.get("notion_token");
+    if(!token){setResult({err:true,msg:"Notion Tokenが未設定です。右上の設定から入力してください。"});return;}
+    setSaving(true);setResult(null);
+    const resolvedTitle=lines[0]?.trim().slice(0,60)||"クイックメモ";
+    const resolvedBody=lines.slice(1).join("\n").trim();
+    try{
+      const res=await fetch("/api/save",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({token,dbId:db.dbId,title:resolvedTitle,body:resolvedBody,tags}),
+      });
+      const data=await res.json();
+      if(!res.ok)throw new Error(data.error||"保存に失敗しました");
+      setResult({ok:true,url:data.url});
+      setBody("");setTags([]);
+    }catch(e){setResult({err:true,msg:e.message});}
+    setSaving(false);
+  };
+
+  return(
+    <div style={{display:"flex",flexDirection:"column",height:"100dvh",background:"#fff",maxWidth:540,margin:"0 auto"}}>
+
+      {/* Header */}
+      <div style={{padding:"14px 18px 12px",borderBottom:"1px solid #F0F0F0",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
+        <div style={{overflow:"hidden"}}>
+          <div style={{fontSize:9,letterSpacing:"0.4em",color:"#BBB",textTransform:"uppercase",marginBottom:2}}>IOAP / Quick Memo</div>
+          <div style={{fontSize:15,fontWeight:600,color:titleLine?"#111":"#DDD",fontFamily:"Georgia,'Hiragino Mincho ProN',serif",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:"60vw"}}>
+            {titleLine||"新しいメモ"}
+          </div>
+        </div>
+        <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
+          {result?.ok&&(
+            <>
+              <a href={result.url} target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:"#0B8B84",textDecoration:"none",border:"1px solid #0B8B8430",borderRadius:6,padding:"4px 10px"}}>Notionで確認 →</a>
+              <button onClick={reset} style={{background:"none",border:"1px solid #E8E8E8",borderRadius:6,padding:"4px 10px",fontSize:11,color:"#999",cursor:"pointer"}}>新規</button>
+            </>
+          )}
+          <button onClick={()=>window._setScreen("settings")} style={{background:"none",border:"1px solid #E8E8E8",borderRadius:8,width:34,height:34,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#888",fontSize:17}}>⚙</button>
+        </div>
+      </div>
+
+      {/* Banners */}
+      {result?.ok&&<div style={{padding:"10px 20px",background:"#F0FDF4",borderBottom:"1px solid #BBF7D0",fontSize:13,color:"#16A34A",fontWeight:500,animation:"fadein .2s ease",flexShrink:0}}>✓ {db.label}DBに保存しました</div>}
+      {result?.err&&<div style={{padding:"10px 20px",background:"#FEF2F2",borderBottom:"1px solid #FECACA",fontSize:12,color:"#DC2626",lineHeight:1.6,animation:"fadein .2s ease",flexShrink:0}}>⚠ {result.msg}</div>}
+
+      {/* Editor */}
+      <div style={{flex:1,overflow:"auto",padding:"20px 22px 0"}}>
+        <textarea ref={textRef} value={body} onChange={e=>setBody(e.target.value)}
+          onKeyDown={e=>{if(e.key==="Enter"&&(e.metaKey||e.ctrlKey))save();}}
+          placeholder={"思ったこと、気づき、アイデア、なんでも。\n\n1行目がタイトルになります。\n下のマイクで音声入力もできます。"}
+          autoFocus
+          style={{width:"100%",minHeight:200,border:"none",outline:"none",fontSize:15.5,color:"#111",lineHeight:1.9,fontFamily:"Georgia,'Hiragino Mincho ProN',serif",background:"transparent",padding:0}}
+        />
+      </div>
+
+      {/* Tags */}
+      <div style={{borderTop:"1px solid #F2F2F2",flexShrink:0}}>
+        <button onClick={()=>setTagOpen(p=>!p)} style={{width:"100%",padding:"9px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",background:"none",border:"none",cursor:"pointer"}}>
+          <span style={{fontSize:12,color:tags.length?db.color:"#C0C0C0",fontWeight:tags.length?600:400,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"80vw"}}>
+            {tags.length?"# "+tags.join("　# "):"# タグを追加（任意）"}
+          </span>
+          <span style={{fontSize:10,color:"#CCC",flexShrink:0,marginLeft:8}}>{tagOpen?"▲":"▼"}</span>
+        </button>
+        {tagOpen&&(
+          <div style={{padding:"6px 20px 14px",display:"flex",flexWrap:"wrap",gap:6,animation:"fadein .15s ease"}}>
+            {TAGS.map(t=>(
+              <button key={t} onClick={()=>toggleTag(t)} style={{padding:"5px 12px",borderRadius:5,fontSize:12,background:tags.includes(t)?db.color:"#F4F4F4",border:`1px solid ${tags.includes(t)?db.color:"#E8E8E8"}`,color:tags.includes(t)?"#fff":"#555",cursor:"pointer",fontWeight:tags.includes(t)?600:400,transition:"all .1s"}}>{t}</button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Bottom bar */}
+      <div style={{borderTop:"1px solid #EBEBEB",padding:"12px 16px",paddingBottom:"calc(12px + env(safe-area-inset-bottom))",background:"#FAFAFA",flexShrink:0}}>
+        <div style={{display:"flex",gap:8,marginBottom:10}}>
+          {DBS.map(d=>(
+            <button key={d.id} onClick={()=>setDbId(d.id)} style={{flex:1,padding:"10px 4px",background:dbId===d.id?d.bg:"#fff",border:`1.5px solid ${dbId===d.id?d.color+"55":"#E8E8E8"}`,borderRadius:10,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,transition:"all .15s"}}>
+              <div style={{width:28,height:28,borderRadius:"50%",background:dbId===d.id?d.color:"#ECECEC",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,fontFamily:"monospace",color:dbId===d.id?"#fff":"#AAA",transition:"all .15s"}}>{d.short}</div>
+              <span style={{fontSize:10,fontWeight:dbId===d.id?600:400,color:dbId===d.id?d.color:"#999"}}>{d.label}</span>
+            </button>
+          ))}
+        </div>
+        <div style={{display:"flex",gap:10}}>
+          {micOk&&(
+            <button onPointerUp={toggleMic} style={{width:52,height:52,borderRadius:"50%",flexShrink:0,background:listening?db.color:"#F0F0F0",border:`1.5px solid ${listening?db.color:"#E0E0E0"}`,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",transition:"all .15s",boxShadow:listening?`0 0 14px ${db.color}50`:"none",touchAction:"none",userSelect:"none"}}>
+              {listening?<Waveform color="#fff"/>:<MicIcon/>}
+            </button>
+          )}
+          <button onClick={save} disabled={!canSave} style={{flex:1,height:52,borderRadius:12,background:canSave?db.color:"#EBEBEB",border:"none",fontSize:14,fontWeight:600,color:canSave?"#fff":"#CCC",cursor:canSave?"pointer":"not-allowed",display:"flex",alignItems:"center",justifyContent:"center",gap:8,transition:"all .15s"}}>
+            {saving?<span style={{animation:"spin .8s linear infinite",display:"inline-block",fontSize:20}}>⟳</span>:<><SendIcon/>{db.label}DBに保存</>}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Root ──────────────────────────────────────────────────────────────────────
+function App() {
+  const [screen, setScreen] = useState("memo");
+  window._setScreen = setScreen;
+  useEffect(()=>{if(!store.get("notion_token"))setScreen("settings");},[]);
+  return screen==="settings"?<Settings onBack={()=>setScreen("memo")}/>:<Memo/>;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+
+if("serviceWorker" in navigator){
+  window.addEventListener("load",()=>{navigator.serviceWorker.register("/sw.js").catch(console.error);});
+}
+</script>
+</body>
+</html>
